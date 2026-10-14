@@ -1,0 +1,13 @@
+/runtime/
+/downloads/
+/upstream/
+__pycache__/
+*.pyc
+/.tooling/vs-buildtools/
+/.tooling/nvidia-dlss/
+/.tooling/streamline/
+/.tooling/ffmpeg/
+/.tooling/*.exe
+/.tooling/*.obj
+/releases/
+/.tooling/packaging-python/

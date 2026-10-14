@@ -1,0 +1,7 @@
+{
+  "repository": "https://github.com/freefrank/LostOdysseyRecomp.git",
+  "commit": "c258491acb1ea6a38f6220a4c50342d91503e782",
+  "version": "0.9.52",
+  "enhanced_version": "0.2.0",
+  "patch": "patches/display-enhancements.patch"
+}

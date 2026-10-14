@@ -1,0 +1,211 @@
+diff --git a/LostOdysseyRecomp/gpu/aspect_ratio.h b/LostOdysseyRecomp/gpu/aspect_ratio.h
+index 9474171..358ec5b 100644
+--- a/LostOdysseyRecomp/gpu/aspect_ratio.h
++++ b/LostOdysseyRecomp/gpu/aspect_ratio.h
+@@ -9,8 +9,8 @@
+ namespace gpu::aspect_ratio
+ {
+ // Persisted ids (settings.ini aspect_ratio).
+-enum class Mode : uint32_t { Auto = 0, Wide = 1, Ultrawide = 2, Standard = 3 };
+-inline constexpr uint32_t ModeCount = 4;
++enum class Mode : uint32_t { Auto = 0, Wide = 1, Ultrawide = 2, Standard = 3, SuperUltrawide = 4, WideTall = 5 };
++inline constexpr uint32_t ModeCount = 6;
+ struct Ratio { uint32_t width = 0, height = 0; };
+ // 21:9 is the 64:27 of 2560x1080 and 5120x2160 panels.
+ inline constexpr Ratio RatioOf(Mode mode)
+@@ -19,6 +19,8 @@ inline constexpr Ratio RatioOf(Mode mode)
+     case Mode::Wide: return {16, 9};
+     case Mode::Ultrawide: return {64, 27};
+     case Mode::Standard: return {4, 3};
++    case Mode::SuperUltrawide: return {32, 9};
++    case Mode::WideTall: return {16, 10};
+     default: return {};
+     }
+ }
+diff --git a/LostOdysseyRecomp/gpu/dlss_sr.h b/LostOdysseyRecomp/gpu/dlss_sr.h
+index d1c213a..f587bc5 100644
+--- a/LostOdysseyRecomp/gpu/dlss_sr.h
++++ b/LostOdysseyRecomp/gpu/dlss_sr.h
+@@ -22,7 +22,7 @@ namespace gpu::dlss {
+ enum class SrColorSpace : uint8_t { Unknown, Linear, DisplayEncoded };
+ 
+ // DLSS 5 Neural Rendering runs this many times in a row on the SR output.
+-inline constexpr uint32_t kMaxNeuralRenderingPasses = 4;
++inline constexpr uint32_t kMaxNeuralRenderingPasses = 5;
+ 
+ // SR model: the NVSDK_NGX_DLSS_Hint_Render_Preset value both NGX backends set
+ // for every quality mode before they create the feature. Settings dlss_model
+diff --git a/LostOdysseyRecomp/gpu/frame_rate.h b/LostOdysseyRecomp/gpu/frame_rate.h
+index ffb99bf..4907e8d 100644
+--- a/LostOdysseyRecomp/gpu/frame_rate.h
++++ b/LostOdysseyRecomp/gpu/frame_rate.h
+@@ -6,7 +6,7 @@ namespace gpu::frame_rate
+ {
+ // Real game-frame targets, not generated/presented display-frame multipliers.
+ // Keep settings validation, menu ordering and the command processor in sync.
+-inline constexpr std::array<uint32_t, 4> kNativeRates{30, 60, 90, 120};
++inline constexpr std::array<uint32_t, 5> kNativeRates{30, 60, 90, 120, 240};
+ inline constexpr uint32_t kDefault = kNativeRates.front();
+ inline constexpr uint32_t kCount = uint32_t(kNativeRates.size());
+ inline constexpr uint32_t kGuestRefreshHz = 60;
+diff --git a/LostOdysseyRecomp/settings/config.h b/LostOdysseyRecomp/settings/config.h
+index ef607ea..beaaa57 100644
+--- a/LostOdysseyRecomp/settings/config.h
++++ b/LostOdysseyRecomp/settings/config.h
+@@ -77,7 +77,7 @@ inline constexpr uint32_t AudioOutputStereo = 0;
+ inline constexpr uint32_t AudioOutputSurround = 1;
+ inline constexpr uint32_t AudioOutputMatrix = 2;
+ // DLSS 5 Neural Rendering runs at most this many passes after DLSS.
+-inline constexpr uint32_t DlssNeuralRenderingMaxPasses = 4;
++inline constexpr uint32_t DlssNeuralRenderingMaxPasses = 5;
+ 
+ struct Config
+ {
+@@ -139,7 +139,7 @@ struct Config
+     uint32_t dlssModel = 0; // DLSS SR model (render preset): 0 M, 1 L. Applied after saving.
+     gpu::upscaling::FsrQuality fsrQuality = gpu::upscaling::FsrQuality::Quality;
+     uint32_t fsrSharpnessPercent = 0; // 0 disables FSR RCAS; 1-100 sets its strength.
+-    // DLSS 5 Neural Rendering passes on the DLSS output: 0 Off, 1-4. Needs the
++    // DLSS 5 Neural Rendering passes on the DLSS output: 0 Off, 1-5. Needs the
+     // player's nvngx_dlssnr.dll; Windows only. Applied after saving.
+     uint32_t dlssNeuralRendering = 0;
+     // Its model tuning, laid out like the RenoDX ReShade add-on. Percents are the
+diff --git a/LostOdysseyRecomp/settings/graphics_menu.h b/LostOdysseyRecomp/settings/graphics_menu.h
+index 5773b87..ebad446 100644
+--- a/LostOdysseyRecomp/settings/graphics_menu.h
++++ b/LostOdysseyRecomp/settings/graphics_menu.h
+@@ -74,7 +74,7 @@ inline void SelectAa(Config& config, uint32_t choice)
+ #if LO_PLATFORM_MACOS
+ inline constexpr int RenderResolutions[] = {0, 720, 1080, 1440, 2160, InternalResolutionNative};
+ #else
+-inline constexpr int RenderResolutions[] = {0, 720, 1080, 1440, 2160};
++inline constexpr int RenderResolutions[] = {0, 720, 1080, 1440, 2160, InternalResolutionNative};
+ #endif
+ inline uint32_t RenderResolutionChoice(const Config& config)
+ {
+diff --git a/LostOdysseyRecomp/settings/menu.cpp b/LostOdysseyRecomp/settings/menu.cpp
+index 505cb8a..93b7c38 100644
+--- a/LostOdysseyRecomp/settings/menu.cpp
++++ b/LostOdysseyRecomp/settings/menu.cpp
+@@ -329,6 +329,10 @@ constexpr uint32_t resolutions21_9[][2] = {
+     {1720, 720}, {2560, 1080}, {3440, 1440}, {3840, 1600}, {5120, 2160}};
+ constexpr uint32_t resolutions4_3[][2] = {
+     {960, 720}, {1440, 1080}, {1920, 1440}, {2880, 2160}};
++constexpr uint32_t resolutions32_9[][2] = {
++    {2560, 720}, {3840, 1080}, {5120, 1440}, {7680, 2160}};
++constexpr uint32_t resolutions16_10[][2] = {
++    {1280, 800}, {1920, 1200}, {2560, 1600}, {3840, 2400}};
+ using AspectMode = gpu::aspect_ratio::Mode;
+ // Menu positions are independent of the persisted quality IDs (Quality=0, Balanced=1, Performance=2, native AA=3).
+ constexpr uint32_t qualityMenuIds[] = {2, 1, 0, 3};
+@@ -345,8 +349,12 @@ inline bool IsUltrawideAspect(uint32_t width, uint32_t height)
+ std::span<const uint32_t[2]> OutputResolutions(AspectMode mode, uint32_t width, uint32_t height)
+ {
+     if (mode == AspectMode::Auto)
+-        mode = IsUltrawideAspect(width, height) ? AspectMode::Ultrawide
++        mode = uint64_t(width) * 9 >= uint64_t(height) * 30 ? AspectMode::SuperUltrawide
++             : uint64_t(width) * 10 == uint64_t(height) * 16 ? AspectMode::WideTall
++             : IsUltrawideAspect(width, height) ? AspectMode::Ultrawide
+              : uint64_t(width) * 2 < uint64_t(height) * 3 ? AspectMode::Standard : AspectMode::Wide;
++    if (mode == AspectMode::SuperUltrawide) return resolutions32_9;
++    if (mode == AspectMode::WideTall) return resolutions16_10;
+     if (mode == AspectMode::Ultrawide) return resolutions21_9;
+     if (mode == AspectMode::Standard) return resolutions4_3;
+     return resolutions16_9;
+@@ -1361,7 +1369,7 @@ void Publish(uint8_t *base, uint32_t config)
+             placeGraphics(GraphicsRow::Display, std::move(displayRow));
+         }
+         placeGraphics(GraphicsRow::AspectRatio, makeChoices(L"Aspect ratio", L"畫面比例",
+-                   {Tr(L"Auto", L"自動"), L"16:9", L"21:9", L"4:3"}, uint32_t(edit.aspectRatio)));
++                   {Tr(L"Auto", L"自動"), L"16:9", L"21:9", L"4:3", L"32:9", L"16:10"}, uint32_t(edit.aspectRatio)));
+         std::vector<std::wstring> outputChoices;
+         uint32_t outputChoice = 0;
+         const auto resolutions = OutputResolutions(edit.aspectRatio, edit.width, edit.height);
+@@ -1374,7 +1382,7 @@ void Publish(uint8_t *base, uint32_t config)
+         std::vector<std::wstring> renderChoices;
+         for (const int height : graphics_menu::RenderResolutions)
+             renderChoices.push_back(height == 0 ? Tr(L"Follow output", L"跟隨輸出") :
+-                height == InternalResolutionNative ? Tr(L"Native (Retina)", L"原生（Retina）") :
++                height == InternalResolutionNative ? Tr(L"Native pixels", L"原生像素") :
+                 std::to_wstring(height) + L"p");
+         placeGraphics(GraphicsRow::RenderResolution, makeChoices(L"Render resolution", L"渲染解析度",
+                    std::move(renderChoices), graphics_menu::RenderResolutionChoice(edit)));
+@@ -1419,7 +1427,7 @@ void Publish(uint8_t *base, uint32_t config)
+         fsrSharpness.hidden = GraphicsRowHidden(int(GraphicsRow::FsrSharpness));
+         placeGraphics(GraphicsRow::FsrSharpness, std::move(fsrSharpness));
+         auto neuralRendering = makeChoices(L"DLSS 5 neural rendering", L"DLSS 5 神經渲染",
+-                   {Tr(L"Off", L"關"), L"1×", L"2×", L"3×", L"4×"},
++                   {Tr(L"Off", L"關"), L"1×", L"2×", L"3×", L"4×", L"5×"},
+                    std::min(edit.dlssNeuralRendering, DlssNeuralRenderingMaxPasses));
+         neuralRendering.hidden = GraphicsRowHidden(int(GraphicsRow::DlssNeuralRendering));
+         placeGraphics(GraphicsRow::DlssNeuralRendering, std::move(neuralRendering));
+@@ -1624,8 +1632,8 @@ void Publish(uint8_t *base, uint32_t config)
+                            L"儲存後將遊戲視窗移到這台顯示器，全螢幕也會使用它。自動則讓視窗留在原處。");
+             break;
+         case GraphicsRow::AspectRatio:
+-            next.help = Tr(L"Auto fills the window. 16:9, 21:9 and 4:3 keep that shape with black bars; frame generation is off while bars show. Applies immediately after saving.",
+-                           L"自動會填滿視窗。16:9、21:9 與 4:3 保持該比例並加上黑邊；有黑邊時影格生成關閉。儲存後立即套用。");
++            next.help = Tr(L"Auto fills the window. Fixed ratios (16:9, 21:9, 32:9, 16:10 and 4:3) preserve proportions with black bars. Frame generation is off while bars show. Applies after saving.",
++                           L"自動填滿視窗。固定比例（16:9、21:9、32:9、16:10 與 4:3）保持比例並加上黑邊；有黑邊時影格生成關閉。儲存後套用。");
+             break;
+         case GraphicsRow::OutputResolution:
+             next.help = Tr(L"Sets the output size. Fullscreen uses the desktop size.",
+@@ -1695,8 +1703,8 @@ void Publish(uint8_t *base, uint32_t config)
+             break;
+         case GraphicsRow::DlssNeuralRendering:
+         {
+-            next.help = Tr(L"NVIDIA's DLSS 5 neural rendering on the DLSS image. 1×-4× runs it that many times: stronger, but each pass costs frame rate. Needs an RTX GPU and nvngx_dlssnr.dll next to the game (not included). Applies after saving.",
+-                           L"在 DLSS 畫面上執行 NVIDIA 的 DLSS 5 神經渲染。1×-4× 為執行次數：次數越多效果越強，但每次都會降低影格率。需要 RTX 顯示卡，並將 nvngx_dlssnr.dll 放在遊戲旁（不隨附）。儲存後套用。");
++            next.help = Tr(L"DLSS 5 neural rendering: 1x-5x is the number of sequential passes, not frame generation. More passes increase GPU cost. Needs an RTX GPU and nvngx_dlssnr.dll. Applies after saving.",
++                           L"DLSS 5 神經渲染：1×-5× 是連續處理次數，並非影格生成。次數越多 GPU 開銷越高。需要 RTX 顯示卡與 nvngx_dlssnr.dll。儲存後套用。");
+             next.help = next.help + L" " + Tr(L"Confirm opens the tuning page.", L"按確認開啟調整頁面。");
+             using gpu::dlss::NeuralRenderingState;
+             const auto state = gpu::dlss::g_neuralRenderingState.load(std::memory_order_relaxed);
+@@ -1743,8 +1751,8 @@ void Publish(uint8_t *base, uint32_t config)
+             break;
+         case GraphicsRow::FrameRate:
+             next.help = edit.frameRate > 60
+-                ? Tr(L"90/120 FPS render real game frames. No extra flag is needed. Verify speed, audio and battle timing.",
+-                     L"90/120 FPS 渲染真實遊戲影格，無需額外開關。請確認遊戲速度、音訊與戰鬥時序。")
++                ? Tr(L"90/120/240 FPS render real game frames. No extra flag is needed. Verify speed, audio and battle timing.",
++                     L"90/120/240 FPS 渲染真實遊戲影格，無需額外開關。請確認遊戲速度、音訊與戰鬥時序。")
+                 : Tr(L"Native game-frame target, independent of frame generation. Applies after saving.",
+                      L"原生遊戲影格率，獨立於影格生成。儲存後套用。");
+             break;
+diff --git a/tools/tests/frame_pacer_test.cpp b/tools/tests/frame_pacer_test.cpp
+index 81f9e17..103fd42 100644
+--- a/tools/tests/frame_pacer_test.cpp
++++ b/tools/tests/frame_pacer_test.cpp
+@@ -12,7 +12,7 @@ int main()
+     using gpu::FramePacer;
+     namespace rate = gpu::frame_rate;
+     const auto origin = FramePacer::Clock::time_point(seconds(100));
+-    static_assert(rate::kCount == 4);
++    static_assert(rate::kCount == 5);
+     for (uint32_t i = 0; i < rate::kCount; ++i)
+     {
+         const auto fps = rate::kNativeRates[i];
+@@ -97,5 +97,5 @@ int main()
+         }
+         Require(MapPresentInterval(flags | 0x200, 0x827B4A4C, 59) == (flags | 0x200), "sub-60 diagnostic preserves baseline");
+     }
+-    std::puts("native 30/60/90/120 policy, frame pacer and guest interval checks passed");
++    std::puts("native 30/60/90/120/240 policy, frame pacer and guest interval checks passed");
+ }
+diff --git a/tools/tests/frame_plan_test.cpp b/tools/tests/frame_plan_test.cpp
+index 868b864..145dcde 100644
+--- a/tools/tests/frame_plan_test.cpp
++++ b/tools/tests/frame_plan_test.cpp
+@@ -267,7 +267,11 @@ int main()
+                               Case{{2560, 1080}, Mode::Wide, 1920, 1080}, Case{{2560, 1600}, Mode::Wide, 2560, 1440},
+                               Case{{1280, 800}, Mode::Standard, 1066, 800}, Case{{3440, 1440}, Mode::Ultrawide, 3440, 1440},
+                               Case{{1366, 768}, Mode::Wide, 1366, 768}, Case{{2560, 1600}, Mode::Auto, 2560, 1600},
+-                              Case{{1600, 1200}, Mode::Standard, 1600, 1200}}) {
++                              Case{{1600, 1200}, Mode::Standard, 1600, 1200},
++                              Case{{5120, 1440}, Mode::SuperUltrawide, 5120, 1440},
++                              Case{{1920, 1080}, Mode::SuperUltrawide, 1920, 540},
++                              Case{{2560, 1600}, Mode::WideTall, 2560, 1600},
++                              Case{{1920, 1080}, Mode::WideTall, 1728, 1080}}) {
+             const auto output = gpu::upscaling::ResolveOutputRegion(c.drawable, c.mode);
+             Require(output.drawable == c.drawable && output.x == 0 && output.y == 0 &&
+                 output.width == c.width && output.height == c.height, "aspect ratio fits its shape inside the drawable");
